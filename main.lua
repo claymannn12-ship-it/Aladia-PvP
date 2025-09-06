@@ -1,22 +1,20 @@
--- This is a local script for Aladia PvP that adds an aim-lock feature
--- and a GUI button to toggle it on and off.
--- It should be placed in StarterPlayer > StarterPlayerScripts.
-
 --=================================================================================--
 -- SERVICES AND VARIABLES
+-- This script adds an aim-lock feature to a local player with a GUI to toggle it.
+-- It should be placed in StarterPlayer > StarterPlayerScripts.
 --=================================================================================--
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Teams = game:GetService("Teams")
 local TweenService = game:GetService("TweenService")
-local StarterGui = game:GetService("StarterGui")
 local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
 
-local LocalPlayer = Players.LocalPlayer
-local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
-local Camera = workspace.CurrentCamera
+local localPlayer = Players.LocalPlayer
+local Character = localPlayer.Character
+local HumanoidRootPart = Character and Character:FindFirstChild("HumanoidRootPart")
+local Camera = Workspace.CurrentCamera
 
 local isAimLockEnabled = false
 local isRightMouseButtonDown = false
@@ -29,44 +27,90 @@ local cameraSmoothness = 0.3 -- Higher value = faster camera lock
 -- GUI SETUP
 --=================================================================================--
 
--- Destroy any existing GUI to prevent duplication on respawn
-if LocalPlayer.PlayerGui:FindFirstChild("AimLockGui") then
-	LocalPlayer.PlayerGui.AimLockGui:Destroy()
-end
-
--- Create the main ScreenGui
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "AimLockGui"
-screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-
--- Create the toggle button
-local toggleButton = Instance.new("TextButton")
-toggleButton.Name = "ToggleButton"
-toggleButton.Size = UDim2.new(0, 150, 0, 40)
-toggleButton.Position = UDim2.new(0.5, -75, 0.9, 0) -- Centered at the bottom
-toggleButton.AnchorPoint = Vector2.new(0.5, 0.5)
-toggleButton.Font = Enum.Font.SourceSansBold
-toggleButton.TextSize = 18
-toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-toggleButton.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
-toggleButton.BorderColor3 = Color3.fromRGB(0, 0, 0)
-toggleButton.Text = "Aim Lock: OFF"
-toggleButton.Parent = screenGui
-
--- Add a UICorner for a rounded look
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 8)
-corner.Parent = toggleButton
-
--- Update the button's appearance based on the aim lock state
-local function updateButtonState()
-	if isAimLockEnabled then
-		toggleButton.Text = "Aim Lock: ON"
-		toggleButton.BackgroundColor3 = Color3.fromRGB(0, 200, 50) -- Green
-	else
-		toggleButton.Text = "Aim Lock: OFF"
-		toggleButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0) -- Red
+-- Ensure a clean slate on respawn by destroying any existing GUI.
+local function setupGui()
+	if localPlayer.PlayerGui:FindFirstChild("AimLockGui") then
+		localPlayer.PlayerGui.AimLockGui:Destroy()
 	end
+	
+	-- Create the main ScreenGui
+	local screenGui = Instance.new("ScreenGui")
+	screenGui.Name = "AimLockGui"
+	screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
+	
+	-- Create the toggle button
+	local toggleButton = Instance.new("TextButton")
+	toggleButton.Name = "ToggleButton"
+	toggleButton.Size = UDim2.new(0, 150, 0, 40)
+	toggleButton.Position = UDim2.new(0.5, -75, 0.9, 0) -- Centered at the bottom
+	toggleButton.AnchorPoint = Vector2.new(0.5, 0.5)
+	toggleButton.Font = Enum.Font.SourceSansBold
+	toggleButton.TextSize = 18
+	toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+	toggleButton.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+	toggleButton.BorderColor3 = Color3.fromRGB(0, 0, 0)
+	toggleButton.Text = "Aim Lock: OFF"
+	toggleButton.Parent = screenGui
+	
+	-- Add a UICorner for a rounded look
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 8)
+	corner.Parent = toggleButton
+	
+	-- Update the button's appearance based on the aim lock state
+	local function updateButtonState()
+		if isAimLockEnabled then
+			toggleButton.Text = "Aim Lock: ON"
+			toggleButton.BackgroundColor3 = Color3.fromRGB(0, 200, 50) -- Green
+		else
+			toggleButton.Text = "Aim Lock: OFF"
+			toggleButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0) -- Red
+		end
+	end
+	
+	-- Toggle the aim lock when the button is clicked
+	toggleButton.MouseButton1Click:Connect(function()
+		isAimLockEnabled = not isAimLockEnabled
+		updateButtonState()
+		
+		if not isAimLockEnabled then
+			-- When aim lock is disabled, remove any existing highlights
+			removeHighlight()
+		end
+	end)
+	
+	-- Initial state update
+	updateButtonState()
+
+	---
+	
+	-- Create the credits panel
+	local creditsPanel = Instance.new("Frame")
+	creditsPanel.Name = "CreditsPanel"
+	creditsPanel.Size = UDim2.new(0, 200, 0, 30)
+	creditsPanel.Position = UDim2.new(0, 10, 1, -40) -- Position at the bottom left
+	creditsPanel.AnchorPoint = Vector2.new(0, 1)
+	creditsPanel.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+	creditsPanel.BackgroundTransparency = 0.5
+	creditsPanel.BorderSizePixel = 0
+	creditsPanel.Parent = screenGui
+	
+	-- Add a UICorner for a rounded look
+	local creditsCorner = Instance.new("UICorner")
+	creditsCorner.CornerRadius = UDim.new(0, 8)
+	creditsCorner.Parent = creditsPanel
+	
+	-- Create the credits label
+	local creditsLabel = Instance.new("TextLabel")
+	creditsLabel.Name = "CreditsLabel"
+	creditsLabel.Size = UDim2.new(1, 0, 1, 0)
+	creditsLabel.Position = UDim2.new(0, 0, 0, 0)
+	creditsLabel.BackgroundTransparency = 1
+	creditsLabel.Font = Enum.Font.SourceSansPro
+	creditsLabel.TextSize = 16
+	creditsLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	creditsLabel.Text = "DEVELOPER: Sp3ctr@l"
+	creditsLabel.Parent = creditsPanel
 end
 
 --=================================================================================--
@@ -74,6 +118,7 @@ end
 --=================================================================================--
 
 local function createHighlight(instanceToHighlight)
+	-- Destroy any existing highlight before creating a new one
 	if highlightInstance then
 		highlightInstance:Destroy()
 	end
@@ -85,7 +130,9 @@ local function createHighlight(instanceToHighlight)
 	highlightInstance.FillTransparency = 1 -- Fully transparent fill
 	highlightInstance.OutlineTransparency = 0 -- Fully opaque outline
 	highlightInstance.Adornee = instanceToHighlight
-	highlightInstance.Parent = instanceToHighlight.Parent -- Highlight must be parented to the model
+	
+	-- Highlight must be parented to the model it's adorning for proper functionality
+	highlightInstance.Parent = instanceToHighlight.Parent
 end
 
 local function removeHighlight()
@@ -100,14 +147,19 @@ end
 --=================================================================================--
 
 local function getClosestValidTarget()
+	-- Exit early if the local character or root part is not available
+	if not Character or not HumanoidRootPart then
+		return nil
+	end
+	
 	local closestTarget = nil
 	local closestDistance = math.huge
 	
 	for _, player in ipairs(Players:GetPlayers()) do
-		-- Skip if the player is the local player or on the same team
-		if player ~= LocalPlayer and player.Team ~= LocalPlayer.Team then
+		-- Skip the local player and teammates
+		if player ~= localPlayer and player.Team ~= localPlayer.Team then
 			local targetCharacter = player.Character
-			if targetCharacter then
+			if targetCharacter and targetCharacter:FindFirstChild("HumanoidRootPart") then
 				-- Prioritize Head, then UpperTorso, then any other Torso-like part
 				local targetPart = targetCharacter:FindFirstChild("Head") or targetCharacter:FindFirstChild("UpperTorso") or targetCharacter:FindFirstChild("LowerTorso") or targetCharacter:FindFirstChild("Torso")
 				
@@ -137,7 +189,7 @@ local function updateAimLock()
 		removeHighlight()
 	end
 	
-	if currentTarget then
+	if currentTarget and HumanoidRootPart then
 		-- Update the highlight to the current target
 		if highlightInstance and highlightInstance.Adornee ~= currentTarget then
 			createHighlight(currentTarget)
@@ -145,7 +197,7 @@ local function updateAimLock()
 			createHighlight(currentTarget)
 		end
 		
-		-- Smoothly turn the camera to face the target
+		-- Smoothly turn the camera to face the target's position
 		local lookAtCFrame = CFrame.lookAt(Camera.CFrame.Position, currentTarget.Position)
 		Camera.CFrame = Camera.CFrame:lerp(lookAtCFrame, cameraSmoothness)
 	else
@@ -155,24 +207,15 @@ local function updateAimLock()
 end
 
 --=================================================================================--
--- CONNECTIONS
+-- CONNECTIONS AND MAIN LOGIC
 --=================================================================================--
 
 -- Re-assign the Character and HumanoidRootPart when the player respawns
-LocalPlayer.CharacterAdded:Connect(function(newChar)
+localPlayer.CharacterAdded:Connect(function(newChar)
 	Character = newChar
 	HumanoidRootPart = newChar:WaitForChild("HumanoidRootPart")
-end)
-
--- Toggle the aim lock when the button is clicked
-toggleButton.MouseButton1Click:Connect(function()
-	isAimLockEnabled = not isAimLockEnabled
-	updateButtonState()
-	
-	if not isAimLockEnabled then
-		-- When aim lock is disabled, remove any existing highlights
-		removeHighlight()
-	end
+	-- Re-run GUI setup in case it was destroyed on respawn
+	setupGui() 
 end)
 
 -- Track the right mouse button state
@@ -185,31 +228,26 @@ end)
 UserInputService.InputEnded:Connect(function(input, gameProcessedEvent)
 	if input.UserInputType == Enum.UserInputType.MouseButton2 and not gameProcessedEvent then
 		isRightMouseButtonDown = false
-		-- Remove the highlight and stop aiming when right click is released
+		-- When right click is released, remove the highlight and reset target
 		removeHighlight()
+		currentTarget = nil
 	end
 end)
 
--- Main loop for aim-lock logic, now only runs when enabled and active
+-- Main loop for aim-lock logic, only runs when enabled and right mouse button is down
 RunService.Heartbeat:Connect(function()
 	if isAimLockEnabled and isRightMouseButtonDown then
 		updateAimLock()
 	end
 end)
 
--- Handle player and character removal
-Players.PlayerRemoving:Connect(function(player)
-	-- Check if the player being removed is the current target's owner
-	if currentTarget and player.Character and currentTarget:IsDescendantOf(player.Character) then
-		currentTarget = nil
+-- Clean up when the local character dies
+if Character then
+	Character.Humanoid.Died:Connect(function()
 		removeHighlight()
-	end
-end)
+		currentTarget = nil
+	end)
+end
 
-Character.Humanoid.Died:Connect(function()
-	currentTarget = nil
-	removeHighlight()
-end)
-
--- Initial state update
-updateButtonState()
+-- Initial GUI setup
+setupGui()
